@@ -790,7 +790,10 @@ func (t *tokenizer) readRadixDigits(dok matcher, w io.ByteWriter) (int, error) {
 			return 0, err
 		}
 		if c == '_' {
-			nextChar, _ := t.peek()
+			nextChar, err := t.peek()
+			if err != nil {
+				return 0, err
+			}
 			if nextChar == '.' || nextChar == '_' || !dok(nextChar) {
 				return 0, t.invalidChar(c)
 			}
