@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -27,7 +26,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 const goodPath = "../ion-tests/iontestdata/good"
@@ -60,7 +58,11 @@ func (i *ionItem) equal(o ionItem) bool {
 		return cmpBools(i.value[0], o.value[0])
 	case StringType:
 		return cmpStrings(i.value[0], o.value[0])
-	case SymbolType, TimestampType, ClobType, BlobType:
+	case TimestampType:
+		return cmpTimestamps(i.value[0], o.value[0])
+	//case DecimalType:
+	//	return cmpDecimals(i.value[0], o.value[0])
+	case SymbolType, ClobType, BlobType:
 		return cmp.Equal(i.value, o.value)
 	case ListType, SexpType, StructType:
 		return cmpValueSlices(i.value, o.value)
@@ -521,9 +523,6 @@ func equivalencyAssertion(t *testing.T, values []ionItem, eq bool) {
 
 // Read and load the files in testing path and pass them to testing functions.
 func readFilesAndTest(t *testing.T, path string, skipList []string, testingFunc testingFunc) {
-	//fp := filepath.Join(path, "T10.10n")
-	//testingFunc(t, fp)
-
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		t.Fatal(err)
@@ -884,176 +883,4 @@ func readCurrentValue(t *testing.T, reader Reader) ionItem {
 		}
 	}
 	return ionItem
-}
-
-func cmpAnnotations(thisAnnotations, otherAnnotations []string) bool {
-	if len(thisAnnotations) != len(otherAnnotations) {
-		return false
-	}
-
-	for idx, this := range thisAnnotations {
-		other := otherAnnotations[idx]
-		thisText, otherText := this, other
-
-		if !cmp.Equal(thisText, otherText) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func cmpValueSlices(thisValues, otherValues []interface{}) bool {
-	if len(thisValues) == 0 && len(otherValues) == 0 {
-		return true
-	}
-
-	if len(thisValues) != len(otherValues) {
-		return false
-	}
-
-	res := false
-	for idx, this := range thisValues {
-		other := otherValues[idx]
-		thisType, otherType := reflect.TypeOf(this), reflect.TypeOf(other)
-
-		if thisType != otherType {
-			return false
-		}
-
-		switch this.(type) {
-		case string: // null.Sexp, null.List, null.Struct
-			res = strNullTypeCmp(this, other)
-		default:
-			thisItem := this.(ionItem)
-			otherItem := other.(ionItem)
-			res = thisItem.equal(otherItem)
-		}
-		if !res {
-			return false
-		}
-	}
-	return res
-}
-
-func cmpFloats(thisValue, otherValue interface{}) bool {
-	if !haveSameTypes(thisValue, otherValue) {
-		return false
-	}
-
-	switch val := thisValue.(type) {
-	case string: // null.float
-		return strNullTypeCmp(val, otherValue)
-	case float64:
-		thisFloat := ionFloat{val}
-		return thisFloat.eq(otherValue.(float64))
-	default:
-		return false
-	}
-}
-
-func cmpInts(thisValue, otherValue interface{}) bool {
-	if !haveSameTypes(thisValue, otherValue) {
-		return false
-	}
-
-	switch val := thisValue.(type) {
-	case string: // null.float
-		return strNullTypeCmp(val, otherValue)
-	case int:
-		thisInt := ionInt{i32: val}
-		return thisInt.eq(otherValue.(int))
-	case int64:
-		thisInt := ionInt{i64: val}
-		return thisInt.eq(otherValue.(int64))
-	case uint64:
-		thisInt := ionInt{ui64: val}
-		return thisInt.eq(otherValue.(uint64))
-	case *big.Int:
-		thisInt := ionInt{bi: val}
-		return thisInt.eq(otherValue.(*big.Int))
-	default:
-		return false
-	}
-}
-
-func cmpBools(thisValue, otherValue interface{}) bool {
-	if !haveSameTypes(thisValue, otherValue) {
-		return false
-	}
-
-	switch val := thisValue.(type) {
-	case string: // null.bool
-		return strNullTypeCmp(val, otherValue)
-	case bool:
-		thisBool := ionBool{val}
-		return thisBool.eq(otherValue.(bool))
-	default:
-		return false
-	}
-}
-
-func cmpStrings(thisValue, otherValue interface{}) bool {
-	if !haveSameTypes(thisValue, otherValue) {
-		return false
-	}
-
-	switch val := thisValue.(type) {
-	case string:
-		thisStr := ionString{val}
-		return thisStr.eq(otherValue.(string))
-	default:
-		return false
-	}
-}
-
-type ionEqual interface {
-	eq(other interface{}) bool
-}
-
-type ionFloat struct{ float64 }
-type ionInt struct {
-	i32  int
-	i64  int64
-	ui64 uint64
-	bi   *big.Int
-}
-type ionBool struct{ bool }
-type ionString struct{ string }
-
-func (thisFloat ionFloat) eq(other interface{}) bool {
-	return cmp.Equal(thisFloat.float64, other, cmpopts.EquateNaNs())
-}
-
-func (thisInt ionInt) eq(other interface{}) bool {
-	switch val := other.(type) {
-	case int:
-		return cmp.Equal(thisInt.i32, val)
-	case int64:
-		return cmp.Equal(thisInt.i64, val)
-	case uint64:
-		return cmp.Equal(thisInt.ui64, val)
-	case *big.Int:
-		return thisInt.bi.Cmp(val) == 0
-	default:
-		return false
-	}
-}
-
-func (thisBool ionBool) eq(other interface{}) bool {
-	return cmp.Equal(thisBool.bool, other)
-}
-
-func (thisStr ionString) eq(other interface{}) bool {
-	return cmp.Equal(thisStr.string, other)
-}
-
-func strNullTypeCmp(this, other interface{}) bool {
-	thisStr := this.(string)
-	otherStr := other.(string)
-	return cmp.Equal(thisStr, otherStr)
-}
-
-func haveSameTypes(this, other interface{}) bool {
-	return reflect.TypeOf(this) == reflect.TypeOf(other)
 }
