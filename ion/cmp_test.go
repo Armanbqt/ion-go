@@ -10,54 +10,59 @@ import (
 )
 
 type ionEqual interface {
-	eq(other interface{}) bool
+	eq(other ionEqual) bool
 }
 
-type ionFloat struct{ float64 }
-type ionInt struct {
-	i32  int
-	i64  int64
-	ui64 uint64
-	bi   *big.Int
-}
-type ionBool struct{ bool }
-type ionString struct{ string }
+type ionFloat float64
+type ionInt int
+type ionInt64 int64
+type ionUint64 uint64
+type ionBigInt struct{ *big.Int }
+type ionBool bool
+type ionString string
 type ionTimestamp struct{ time.Time }
-type ionDecimal struct{ Decimal }
+type ionDecimal Decimal
 
-func (thisFloat ionFloat) eq(other interface{}) bool {
-	return cmp.Equal(thisFloat.float64, other, cmpopts.EquateNaNs())
+func (thisFloat ionFloat) eq(other ionEqual) bool {
+	return cmp.Equal(thisFloat, other, cmpopts.EquateNaNs())
 }
 
-func (thisInt ionInt) eq(other interface{}) bool {
-	switch val := other.(type) {
-	case int:
-		return cmp.Equal(thisInt.i32, val)
-	case int64:
-		return cmp.Equal(thisInt.i64, val)
-	case uint64:
-		return cmp.Equal(thisInt.ui64, val)
-	case *big.Int:
-		return thisInt.bi.Cmp(val) == 0
-	default:
-		return false
+func (thisInt ionInt) eq(other ionEqual) bool {
+	return cmp.Equal(thisInt, other)
+}
+
+func (thisInt64 ionInt64) eq(other ionEqual) bool {
+	return cmp.Equal(thisInt64, other)
+}
+
+func (thisUint64 ionUint64) eq(other ionEqual) bool {
+	return cmp.Equal(thisUint64, other)
+}
+
+func (thisBigInt ionBigInt) eq(other ionEqual) bool {
+	if val, ok := other.(ionBigInt); ok {
+		return thisBigInt.Int.Cmp(val.Int) == 0
 	}
+	return false
 }
 
-func (thisBool ionBool) eq(other interface{}) bool {
-	return cmp.Equal(thisBool.bool, other)
+func (thisBool ionBool) eq(other ionEqual) bool {
+	return cmp.Equal(thisBool, other)
 }
 
-func (thisStr ionString) eq(other interface{}) bool {
-	return cmp.Equal(thisStr.string, other)
+func (thisStr ionString) eq(other ionEqual) bool {
+	return cmp.Equal(thisStr, other)
 }
 
-func (thisTimestamp ionTimestamp) eq(other interface{}) bool {
-	return thisTimestamp.Time.Equal(other.(time.Time))
+func (thisTimestamp ionTimestamp) eq(other ionEqual) bool {
+	if val, ok := other.(ionTimestamp); ok {
+		return thisTimestamp.Time.Equal(val.Time)
+	}
+	return false
 }
 
-func (thisDecimal ionDecimal) eq(other interface{}) bool {
-	return thisDecimal.Decimal.Equal(other.(*Decimal))
+func (thisDecimal ionDecimal) eq(other ionEqual) bool {
+	return cmp.Equal(thisDecimal, other)
 }
 
 func cmpAnnotations(thisAnnotations, otherAnnotations []string) bool {
@@ -119,8 +124,8 @@ func cmpFloats(thisValue, otherValue interface{}) bool {
 	case string: // null.float
 		return strNullTypeCmp(val, otherValue)
 	case float64:
-		thisFloat := ionFloat{val}
-		return thisFloat.eq(otherValue.(float64))
+		thisFloat := ionFloat(val)
+		return thisFloat.eq(ionFloat(otherValue.(float64)))
 	default:
 		return false
 	}
@@ -132,20 +137,20 @@ func cmpInts(thisValue, otherValue interface{}) bool {
 	}
 
 	switch val := thisValue.(type) {
-	case string: // null.float
+	case string: // null.int
 		return strNullTypeCmp(val, otherValue)
 	case int:
-		thisInt := ionInt{i32: val}
-		return thisInt.eq(otherValue.(int))
+		thisInt := ionInt(val)
+		return thisInt.eq(ionInt(otherValue.(int)))
 	case int64:
-		thisInt := ionInt{i64: val}
-		return thisInt.eq(otherValue.(int64))
+		thisInt := ionInt64(val)
+		return thisInt.eq(ionInt64(otherValue.(int64)))
 	case uint64:
-		thisInt := ionInt{ui64: val}
-		return thisInt.eq(otherValue.(uint64))
+		thisInt := ionUint64(val)
+		return thisInt.eq(ionUint64(otherValue.(uint64)))
 	case *big.Int:
-		thisInt := ionInt{bi: val}
-		return thisInt.eq(otherValue.(*big.Int))
+		thisInt := ionBigInt{val}
+		return thisInt.eq(ionBigInt{otherValue.(*big.Int)})
 	default:
 		return false
 	}
@@ -160,8 +165,8 @@ func cmpBools(thisValue, otherValue interface{}) bool {
 	case string: // null.bool
 		return strNullTypeCmp(val, otherValue)
 	case bool:
-		thisBool := ionBool{val}
-		return thisBool.eq(otherValue.(bool))
+		thisBool := ionBool(val)
+		return thisBool.eq(ionBool(otherValue.(bool)))
 	default:
 		return false
 	}
@@ -174,8 +179,8 @@ func cmpStrings(thisValue, otherValue interface{}) bool {
 
 	switch val := thisValue.(type) {
 	case string:
-		thisStr := ionString{val}
-		return thisStr.eq(otherValue.(string))
+		thisStr := ionString(val)
+		return thisStr.eq(ionString(otherValue.(string)))
 	default:
 		return false
 	}
@@ -191,7 +196,7 @@ func cmpTimestamps(thisValue, otherValue interface{}) bool {
 		return strNullTypeCmp(val, otherValue)
 	case time.Time:
 		thisTimestamp := ionTimestamp{val}
-		return thisTimestamp.eq(otherValue)
+		return thisTimestamp.eq(ionTimestamp{otherValue.(time.Time)})
 	default:
 		return false
 	}
@@ -203,11 +208,11 @@ func cmpDecimals(thisValue, otherValue interface{}) bool {
 	}
 
 	switch val := thisValue.(type) {
-	case string: // null.bool
+	case string: // null.decimal
 		return strNullTypeCmp(val, otherValue)
 	case Decimal:
-		thisDecimal := ionDecimal{val}
-		return thisDecimal.eq(otherValue)
+		thisDecimal := ionDecimal(val)
+		return thisDecimal.eq(ionDecimal(otherValue.(Decimal)))
 	default:
 		return false
 	}
