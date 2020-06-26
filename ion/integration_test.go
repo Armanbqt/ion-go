@@ -18,14 +18,12 @@ package ion
 import (
 	"bytes"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 const goodPath = "../ion-tests/iontestdata/good"
@@ -50,24 +48,26 @@ func (i *ionItem) equal(o ionItem) bool {
 	}
 
 	switch i.ionType {
-	case FloatType:
-		return cmpFloats(i.value[0], o.value[0])
-	case IntType:
-		return cmpInts(i.value[0], o.value[0])
 	case BoolType:
 		return cmpBools(i.value[0], o.value[0])
-	case StringType:
-		return cmpStrings(i.value[0], o.value[0])
+	case IntType:
+		return cmpInts(i.value[0], o.value[0])
+	case FloatType:
+		return cmpFloats(i.value[0], o.value[0])
+	case DecimalType:
+		return cmpDecimals(i.value[0], o.value[0])
 	case TimestampType:
 		return cmpTimestamps(i.value[0], o.value[0])
-	//case DecimalType:
-	//	return cmpDecimals(i.value[0], o.value[0])
-	case SymbolType, ClobType, BlobType:
+	case SymbolType:
 		return cmp.Equal(i.value, o.value)
+	case StringType:
+		return cmpStrings(i.value[0], o.value[0])
+	case ClobType, BlobType:
+		return cmpLobs(i.value[0], o.value[0])
 	case ListType, SexpType, StructType:
 		return cmpValueSlices(i.value, o.value)
-	default: //DecimalType
-		return reflect.DeepEqual(i.value, o.value)
+	default:
+		return false
 	}
 }
 

@@ -21,7 +21,8 @@ type ionBigInt struct{ *big.Int }
 type ionBool bool
 type ionString string
 type ionTimestamp struct{ time.Time }
-type ionDecimal Decimal
+type ionDecimal struct{ *Decimal }
+type ionLob []byte
 
 func (thisFloat ionFloat) eq(other ionEqual) bool {
 	return cmp.Equal(thisFloat, other, cmpopts.EquateNaNs())
@@ -62,7 +63,14 @@ func (thisTimestamp ionTimestamp) eq(other ionEqual) bool {
 }
 
 func (thisDecimal ionDecimal) eq(other ionEqual) bool {
-	return cmp.Equal(thisDecimal, other)
+	if val, ok := other.(ionDecimal); ok {
+		return thisDecimal.Decimal.Equal(val.Decimal)
+	}
+	return false
+}
+
+func (thisLob ionLob) eq(other ionEqual) bool {
+	return cmp.Equal(thisLob, other)
 }
 
 func cmpAnnotations(thisAnnotations, otherAnnotations []string) bool {
@@ -210,9 +218,25 @@ func cmpDecimals(thisValue, otherValue interface{}) bool {
 	switch val := thisValue.(type) {
 	case string: // null.decimal
 		return strNullTypeCmp(val, otherValue)
-	case Decimal:
-		thisDecimal := ionDecimal(val)
-		return thisDecimal.eq(ionDecimal(otherValue.(Decimal)))
+	case *Decimal:
+		thisDecimal := ionDecimal{val}
+		return thisDecimal.eq(ionDecimal{otherValue.(*Decimal)})
+	default:
+		return false
+	}
+}
+
+func cmpLobs(thisValue, otherValue interface{}) bool {
+	if !haveSameTypes(thisValue, otherValue) {
+		return false
+	}
+
+	switch val := thisValue.(type) {
+	case string: // null.blob  null.clob
+		return strNullTypeCmp(val, otherValue)
+	case []byte:
+		thisLob := ionLob(val)
+		return thisLob.eq(ionLob(otherValue.([]byte)))
 	default:
 		return false
 	}
