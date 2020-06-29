@@ -18,12 +18,13 @@ package ion
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 const goodPath = "../ion-tests/iontestdata/good"
@@ -48,6 +49,8 @@ func (i *ionItem) equal(o ionItem) bool {
 	}
 
 	switch i.ionType {
+	case NullType:
+		return cmp.Equal(i.value, o.value)
 	case BoolType:
 		return cmpBools(i.value[0], o.value[0])
 	case IntType:
@@ -245,7 +248,7 @@ var equivsSkipList = []string{
 }
 
 var nonEquivsSkipList = []string{
-	"decimals.ion",
+	"decimals.ion", // Fails only on 0 compared against -0  https://github.com/amzn/ion-go/issues/67
 	"documents.ion",
 	"floats.ion",
 	"floatsVsDecimals.ion",

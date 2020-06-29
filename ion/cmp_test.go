@@ -64,6 +64,9 @@ func (thisTimestamp ionTimestamp) eq(other ionEqual) bool {
 
 func (thisDecimal ionDecimal) eq(other ionEqual) bool {
 	if val, ok := other.(ionDecimal); ok {
+		if thisDecimal.scale != val.scale {
+			return false
+		}
 		return thisDecimal.Decimal.Equal(val.Decimal)
 	}
 	return false
