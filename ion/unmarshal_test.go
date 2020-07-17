@@ -28,6 +28,7 @@ func TestUnmarshalBool(t *testing.T) {
 	test("true", true)
 	test("false", false)
 }
+
 func TestUnmarshalBoolPtr(t *testing.T) {
 	test := func(str string, eval interface{}) {
 		t.Run(str, func(t *testing.T) {
@@ -62,7 +63,7 @@ func TestUnmarshalBoolPtr(t *testing.T) {
 func TestUnmarshalInt(t *testing.T) {
 	testInt8 := func(str string, eval int8) {
 		t.Run(str, func(t *testing.T) {
-			var val int8
+			var val interface{}
 			err := UnmarshalStr(str, &val)
 			if err != nil {
 				t.Fatal(err)
@@ -267,6 +268,82 @@ func TestUnmarshalBigInt(t *testing.T) {
 	test("null", new(big.Int))
 	test("1", new(big.Int).SetUint64(1))
 	test("-0xFFFFFFFFFFFFFFFF", new(big.Int).Neg(new(big.Int).SetUint64(0xFFFFFFFFFFFFFFFF)))
+}
+
+func TestUnmarshalBinary(t *testing.T) {
+	test := func(data []byte, val, eval interface{}) {
+		t.Run(reflect.TypeOf(val).String(), func(t *testing.T) {
+			err := Unmarshal(data, &val)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res := false
+			switch this := val.(type) {
+			case *Decimal:
+				thisDecimal := ionDecimal{this}
+				res = thisDecimal.eq(ionDecimal{eval.(*Decimal)})
+			case time.Time:
+				thisTime := ionTimestamp{this}
+				//that := time.Time{eval}
+				res = thisTime.eq(ionTimestamp{eval.(time.Time)})
+			default:
+				res = reflect.DeepEqual(val, eval)
+			}
+			if !res {
+				t.Errorf("expected %v, got %v", eval, val)
+			}
+		})
+	}
+
+	var nullVal string                   // Todo: change string
+	nullBytes := addPrefix([]byte{0x0F}) //
+	test(nullBytes, nullVal, nil)
+
+	var boolVal bool
+	boolBytes := addPrefix([]byte{0x11}) // true
+	test(boolBytes, boolVal, true)
+
+	var intVal int16
+	intBytes := addPrefix([]byte{0x22, 0x7F, 0xFF}) // 32767
+	test(intBytes, intVal, 32767)
+
+	var uintVal uint16
+	uintBytes := addPrefix([]byte{0x32, 0x7F, 0xFF}) // -32767
+	test(uintBytes, uintVal, -32767)
+
+	var floatVal float32
+	floatBytes := addPrefix([]byte{0x44, 0x12, 0x12, 0x12, 0x12}) // 4.609175024471393E-28
+	test(floatBytes, floatVal, 4.609175024471393e-28)
+
+	var decimalVal Decimal
+	decimalBytes := addPrefix([]byte{0x51, 0xFF})
+	test(decimalBytes, decimalVal, MustParseDecimal("0d-63"))
+
+	var timeValue time.Time
+	timeBytes := addPrefix([]byte{0x67, 0xC0, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86})
+	test(timeBytes, timeValue, time.Date(int(1), time.Month(2), int(3), 4, 5, 6, 0, time.FixedZone("fixed", 0)))
+
+	var symbolVal string
+	symbolBytes := addPrefix([]byte{0x71, 0x0A})
+	test(symbolBytes, symbolVal, "$10")
+
+	var stringVal string
+	stringBytes := addPrefix([]byte{0x83, 'a', 'b', 'c'})
+	test(stringBytes, stringVal, "abc")
+
+	var clobVal []byte
+	clobBytes := addPrefix([]byte{0x92, 0x0A, 0x0B})
+	test(clobBytes, clobVal, []byte{10, 11})
+
+	var blobVal []byte
+	blobBytes := addPrefix([]byte{0xA3, 'a', 'b', 'c'})
+	test(blobBytes, blobVal, []byte{97, 98, 99})
+
+}
+
+func addPrefix(data []byte) []byte {
+	prefix := []byte{0xE0, 0x01, 0x00, 0xEA} // $ion_1_0
+	return append(prefix, data...)
 }
 
 func TestDecodeFloat(t *testing.T) {
