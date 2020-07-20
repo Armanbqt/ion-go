@@ -63,7 +63,7 @@ func TestUnmarshalBoolPtr(t *testing.T) {
 func TestUnmarshalInt(t *testing.T) {
 	testInt8 := func(str string, eval int8) {
 		t.Run(str, func(t *testing.T) {
-			var val interface{}
+			var val int8
 			err := UnmarshalStr(str, &val)
 			if err != nil {
 				t.Fatal(err)
@@ -278,13 +278,12 @@ func TestUnmarshalBinary(t *testing.T) {
 				t.Fatal(err)
 			}
 			res := false
-			switch this := val.(type) {
+			switch thisValue := val.(type) {
 			case *Decimal:
-				thisDecimal := ionDecimal{this}
+				thisDecimal := ionDecimal{thisValue}
 				res = thisDecimal.eq(ionDecimal{eval.(*Decimal)})
 			case time.Time:
-				thisTime := ionTimestamp{this}
-				//that := time.Time{eval}
+				thisTime := ionTimestamp{thisValue}
 				res = thisTime.eq(ionTimestamp{eval.(time.Time)})
 			default:
 				res = reflect.DeepEqual(val, eval)
@@ -295,53 +294,86 @@ func TestUnmarshalBinary(t *testing.T) {
 		})
 	}
 
-	var nullVal string                   // Todo: change string
-	nullBytes := addPrefix([]byte{0x0F}) //
+	var nullVal string
+	nullBytes := prefixIVM([]byte{0x0F}) // null
 	test(nullBytes, nullVal, nil)
 
 	var boolVal bool
-	boolBytes := addPrefix([]byte{0x11}) // true
+	boolBytes := prefixIVM([]byte{0x11}) // true
 	test(boolBytes, boolVal, true)
 
 	var intVal int16
-	intBytes := addPrefix([]byte{0x22, 0x7F, 0xFF}) // 32767
+	intBytes := prefixIVM([]byte{0x22, 0x7F, 0xFF}) // 32767
 	test(intBytes, intVal, 32767)
 
 	var uintVal uint16
-	uintBytes := addPrefix([]byte{0x32, 0x7F, 0xFF}) // -32767
+	uintBytes := prefixIVM([]byte{0x32, 0x7F, 0xFF}) // -32767
 	test(uintBytes, uintVal, -32767)
 
 	var floatVal float32
-	floatBytes := addPrefix([]byte{0x44, 0x12, 0x12, 0x12, 0x12}) // 4.609175024471393E-28
+	floatBytes := prefixIVM([]byte{0x44, 0x12, 0x12, 0x12, 0x12}) // 4.609175024471393E-28
 	test(floatBytes, floatVal, 4.609175024471393e-28)
 
 	var decimalVal Decimal
-	decimalBytes := addPrefix([]byte{0x51, 0xFF})
+	decimalBytes := prefixIVM([]byte{0x51, 0xFF}) // 0d-63
 	test(decimalBytes, decimalVal, MustParseDecimal("0d-63"))
 
 	var timeValue time.Time
-	timeBytes := addPrefix([]byte{0x67, 0xC0, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86})
+	timeBytes := prefixIVM([]byte{0x67, 0xC0, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86}) // 0001-02-03T04:05:06Z
 	test(timeBytes, timeValue, time.Date(int(1), time.Month(2), int(3), 4, 5, 6, 0, time.FixedZone("fixed", 0)))
 
 	var symbolVal string
-	symbolBytes := addPrefix([]byte{0x71, 0x0A})
+	symbolBytes := prefixIVM([]byte{0x71, 0x0A}) // $10
 	test(symbolBytes, symbolVal, "$10")
 
 	var stringVal string
-	stringBytes := addPrefix([]byte{0x83, 'a', 'b', 'c'})
+	stringBytes := prefixIVM([]byte{0x83, 'a', 'b', 'c'}) // "abc"
 	test(stringBytes, stringVal, "abc")
 
 	var clobVal []byte
-	clobBytes := addPrefix([]byte{0x92, 0x0A, 0x0B})
+	clobBytes := prefixIVM([]byte{0x92, 0x0A, 0x0B})
 	test(clobBytes, clobVal, []byte{10, 11})
 
 	var blobVal []byte
-	blobBytes := addPrefix([]byte{0xA3, 'a', 'b', 'c'})
+	blobBytes := prefixIVM([]byte{0xA3, 'a', 'b', 'c'})
 	test(blobBytes, blobVal, []byte{97, 98, 99})
 
 }
 
-func addPrefix(data []byte) []byte {
+func TestUnmarshalContainersBinary(t *testing.T) {
+	test := func(data []byte, val, eval interface{}) {
+		t.Run("reflect.TypeOf(val).String()", func(t *testing.T) {
+
+			err := Unmarshal(data, &val)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(val, eval) {
+				t.Errorf("expected %v, got %v", eval, val)
+			}
+		})
+	}
+
+	eval := map[string]string{}
+	eval["name"] = "AB"
+	boolBytes := prefixIVM([]byte{0xD4, 0x84, 0x82, 0x41, 0x42}) // {name:AB}
+
+	var boolVal interface{}
+	test(boolBytes, boolVal, eval) // unmarshal IonStruct to an interface
+
+	test(boolBytes, map[string]string{}, eval) // unmarshal IonStruct to a map
+
+	boolBytes = prefixIVM([]byte{238, 159, 129, 131, 222, 155, 135, 190, 152, // {
+		141, 115, 105, 110, 103, 108, 101, 95, 115, 121, 109, 98, 111, 108, // single_symbol
+		137, 115, 111, 109, 101, 116, 104, 105, 110, 103, // something
+		211, 138, 113, 11}) // "
+	type foo struct {
+		Foo string `ion:"single_symbol"`
+	}
+	test(boolBytes, &foo{}, &foo{"something"}) // unmarshal IonStruct to a Go struct
+}
+
+func prefixIVM(data []byte) []byte {
 	prefix := []byte{0xE0, 0x01, 0x00, 0xEA} // $ion_1_0
 	return append(prefix, data...)
 }
