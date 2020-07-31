@@ -33,38 +33,41 @@ var (
 // Unmarshal unmarshals Ion data to the given object.
 //
 // User must pass the proper object type to the unmarshalled Ion data.
-// unmarshalled to is important. Below is the mapping between Golang
-// native type and Ion types. e.g.,
+// unmarshalled to is important. Below is the mapping between Go native
+// type and Ion types. e.g.,
 //
-// boolBytes := []byte{0xE0, 0x01, 0x00, 0xEA, 0x11}
-// var boolVal bool
-// err := Unmarshal(data, &boolVal)
-// if err != nil {
-//	  t.Fatal(err)
-// }
+//     boolBytes := []byte{0xE0, 0x01, 0x00, 0xEA, 0x11}
+//     var boolVal bool
+//     err := Unmarshal(boolBytes, &boolVal)
+//     if err != nil {
+//         t.Fatal(err)
+//     }
+//     fmt.Println(boolVal) // prints out: true
 //
-// err = UnmarshalString(true, &boolVal)
-// if err != nil {
-//	  t.Fatal(err)
-// }
+//     err = UnmarshalString("true", &boolVal)
+//     if err != nil {
+//         t.Fatal(err)
+//     }
+//     fmt.Println(boolVal) // prints out: true
 //
 //
 // To unmarshal an Ion value with annotations, the object passed to Unmarshal
-// must be a golang struct with exactly two fields, where one field's type
+// must be a Go struct with exactly two fields, where one field's type
 // is in accordance with the Ion type which needs to be unmarshalled (list
 // of mapping between Go native types and Ion types below); and the other
 // field must be of type []string and tagged as `ion:",annotations"`.
 //
-//	type foo struct {
-//		Value   int    // or interface{}
-//		AnyName []string `ion:",annotations"`
-//	}
+//     type foo struct {
+//         Value   int    // or interface{}
+//         AnyName []string `ion:",annotations"`
+//     }
 //
-//	var val foo
-//	err := UnmarshalString("age::10", &val)
-//	if err != nil {
-//		t.Fatal(err)
-//	}
+//     var val foo
+//     err := UnmarshalString("age::10", &val)
+//     if err != nil {
+//         t.Fatal(err)
+//     }
+//     fmt.Println(val) // prints out: {10 [age]}
 //
 //  	Go native type   								Ion Type
 //	--------------------------						---------------
@@ -75,7 +78,6 @@ var (
 //		ion.Decimal/interface{}							decimal
 //		ion.Timestamp/interface{}						timestamp
 //		string/interface{}								symbol
-//		string/interface{}								string
 //		string/interface{}								string
 //		[]byte/[]interface{}{}							clob
 //		[]byte/[]interface{}{}							blob
