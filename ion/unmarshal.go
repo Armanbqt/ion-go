@@ -49,7 +49,7 @@ var (
 // }
 //
 //
-// To unmarshal an Ion value with annotations, the object sent to Unmarshal
+// To unmarshal an Ion value with annotations, the object passed to Unmarshal
 // must be a golang struct with exactly two fields, where one field's type
 // is in accordance with the Ion type which needs to be unmarshalled (list
 // of mapping between Go native types and Ion types below); and the other
