@@ -34,7 +34,7 @@ var (
 //
 // Passing proper type for the object in which the data is  supposed to
 // unmarshalled to is important. Below is the mapping between Golang
-// native type and Ion types.
+// native type and Ion types. e.g.,
 //
 // boolBytes := []byte{0xE0, 0x01, 0x00, 0xEA, 0x11}
 // var boolVal bool
