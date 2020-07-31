@@ -39,7 +39,7 @@ type Marshaler interface {
 
 // MarshalText marshals values to text ion.
 //
-// Different Go types can be passed to be Marshalled to their corresponding Ion types.
+// Different Go types can be passed into MarshalText() to be marshalled to their corresponding Ion types. e.g.,
 //
 //	val, err := MarshalText(9)
 //	if err != nil {
