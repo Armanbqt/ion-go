@@ -59,7 +59,7 @@ type Marshaler interface {
 //	}
 //
 //
-// Should the value for marshalling needs to have annotations, it must be wrapped in a
+// Should the value for marshalling require annotations, it must be wrapped in a
 // Go struct with exactly 2 fields, where the other field of the struct is a slice of
 // string and tagged `ion:",annotations"`, and this field can carry all the desired
 // annotations.
