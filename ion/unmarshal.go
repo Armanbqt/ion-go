@@ -32,7 +32,7 @@ var (
 
 // Unmarshal unmarshals Ion data to the given object.
 //
-// Passing proper type for the object in which the data is  supposed to
+// User must pass the proper object type to the unmarshalled Ion data.
 // unmarshalled to is important. Below is the mapping between Golang
 // native type and Ion types. e.g.,
 //
